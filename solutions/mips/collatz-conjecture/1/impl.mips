@@ -1,0 +1,32 @@
+# | Register | Usage     | Type    | Description                                       |
+# | -------- | --------- | ------- | ------------------------------------------------- |
+# | `$a0`    | input     | integer | starting number                                   |
+# | `$v0`    | output    | integer | expected number of steps, -1 if number is invalid |
+# | `$t0-9`  | temporary | any     | used for temporary storage                        |
+
+.globl   steps
+
+steps:
+    li   $v0, -1           # Step counter (output)
+    li   $t1,  1           # Hold a 1 to see if we are done
+    blt  $a0, $t1, done    # Invalid input
+
+    li   $v0, 0            # Set step counter to zero (valid input)
+    move $t0, $a0          # Copy input for starting number
+    li   $t3, 3            # Hold a 3 for the 3x + 1 steps
+
+next_step:
+    beq  $t0, $t1, done    # Reached 1, so done
+    addi $v0, $v0, 1       # Increment step counter
+    andi $t2, $t0, 1       # Is the number even?
+    beqz $t2, is_even      # Yes
+    mul  $t0, $t0, $t3     # Odd, so multiply by 3
+    addi $t0, $t0, 1       # and add one
+    j    next_step
+
+is_even:
+    srl  $t0, $t0, 1       # Divide by two
+    j    next_step
+
+done:
+    jr   $ra
