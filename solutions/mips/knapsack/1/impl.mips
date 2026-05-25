@@ -1,0 +1,75 @@
+# | Register | Usage     | Type    | Description                |
+# | -------- | --------- | ------- | -------------------------- |
+# | `$a0`    | input     | address | array of item weights      |
+# | `$a1`    | input     | address | array of item values       |
+# | `$a2`    | input     | integer | number of items            |
+# | `$a3`    | input     | integer | maximum weight             |
+# | `$v0`    | output    | integer | maximum value              |
+# | `$t0-9`  | temporary | any     | used for temporary storage |
+
+.globl maximum_value
+
+.data
+
+# Largest max_weight in tests is 750
+# We need one more than that in word size
+max_values: .space 3004
+
+.text
+
+maximum_value:
+    addiu  $t3, $a3, 1            # Array holds one more than maximum weight
+    move   $t0, $zero             # Index tracker for max_values
+    la     $t1, max_values
+
+clear_next:
+    sw     $zero, ($t1)           # Fill array with zeros
+    beq    $t0, $t3, clear_done
+    addiu  $t0, $t0, 1            # Next index
+    addiu  $t1, $t1, 4            # Next word-sized address
+    j      clear_next
+
+clear_done:
+    move   $t2, $zero             # Item index
+
+next_item:
+    beq    $t2, $a2, done         # Finished iterating over items
+    move   $t4, $a0               # Get current item's weight
+    sll    $t7, $t2, 2            # Word size
+    add    $t4, $t4, $t7
+    lw     $t5, ($t4)
+
+    move   $t4, $a1               # Get current item's value
+    add    $t4, $t4, $t7          # Same word-sized offset
+    lw     $t6, ($t4)
+
+    addiu  $t2, $t2, 1            # Next item index
+    move   $t0, $t3               # Reset max_values index to last index
+
+next_weight:
+    blt    $t0, $t5, next_item    # While index >= item.weight
+    la     $t1, max_values        # Get max_values[weight - item.weight]
+    sub    $t7, $t0, $t5          # Current index less the item weight
+    sll    $t7, $t7, 2            # Word size
+    add    $t1, $t1, $t7          # Offset
+    lw     $t8, ($t1)
+    add    $t8, $t8, $t6          # Add item's value
+
+    la     $t1, max_values        # Get max_values[weight]
+    sll    $t7, $t0, 2            # Word size
+    add    $t1, $t1, $t7          # Offset
+    lw     $t9, ($t1)
+
+    ble    $t8, $t9, leave_item
+    sw     $t8, ($t1)             # New max value
+
+leave_item:
+    addi   $t0, $t0, -1
+    j      next_weight
+
+done:
+    la     $t1, max_values        # Maximum value is max_values[maximum_weight]
+    sll    $t0, $a3, 2
+    add    $t1, $t1, $t0
+    lw     $v0, ($t1)
+    jr     $ra
