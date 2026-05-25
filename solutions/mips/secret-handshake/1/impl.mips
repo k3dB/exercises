@@ -1,0 +1,82 @@
+# | Register | Usage        | Type    | Description                   |
+# | -------- | ------------ | ------- | ----------------------------- |
+# | `$a0`    | input        | integer | number between 1 and 31       |
+# | `$a1`    | input/output | address | null-terminated output string |
+# | `$t0-9`  | temporary    | any     | used for temporary storage    |
+
+.globl commands
+
+.data
+
+wink:         .asciiz "wink"
+double_blink: .asciiz "double blink"
+close_eyes:   .asciiz "close your eyes"
+jump:         .asciiz "jump"
+separator:    .asciiz ", "
+
+action_count: .byte 4
+actions:      .word wink, double_blink, close_eyes, jump
+flags:        .byte    1,            2,          4,    8
+
+reverse_flag: .byte 16
+
+.text
+
+.macro copy_string()
+next_byte:
+    lb    $t1, ($t0)          # Load next byte
+    beqz  $t1, finish_copy    # Finished copying string
+    sb    $t1, ($t5)          # Copy byte
+    addiu $t0, $t0, 1         # Point to next source byte
+    addiu $t5, $t5, 1         # Point to next output byte
+    j     next_byte
+finish_copy:
+.end_macro
+
+commands:
+    move  $t5, $a1            # Output string pointer
+    move  $t4, $zero          # Separator flag (initially cleared)
+    la    $t0, action_count
+    lb    $t3, ($t0)          # Get count of actions
+
+    la    $t0, reverse_flag   # Get direction
+    lb    $t1, ($t0)
+    and   $t0, $t1, $a0
+    beqz  $t0, forward        # If reverse flag is not set, iterate forward
+
+    addiu $t2, $t3,   -1      # Start at last index
+    addi  $t6, $zero, -1      # Decrement index
+    j     next_action
+
+forward:
+    move  $t2, $zero          # Start at first index
+    ori   $t6, $zero, 1       # Increment index
+
+next_action:
+    beqz  $t3, done           # Finished iterating over actions
+    addiu $t3, $t3, -1        # Decrement action count
+    la    $t0, flags          # Check flag of current action
+    add   $t0, $t0, $t2
+    lb    $t1, ($t0)
+    and   $t0, $t1, $a0
+    beqz  $t0, skip_action    # If flag is not set, skip action
+
+    beqz  $t4, store_action   # Skip separator on first action
+    la    $t0, separator
+    copy_string()
+
+store_action:
+    la    $t0, actions        # From actions array
+    sll   $t1, $t2, 2         # Word size (keep actual index value)
+    add   $t0, $t0, $t1       # Action offset (address in array)
+    lw    $t0, ($t0)          # Get address of action (string)
+    copy_string()
+    ori   $t4, $zero, 1       # Set separator flag
+
+skip_action:
+    add   $t2, $t2, $t6       # Next index
+    j     next_action
+
+done:
+    sb    $zero, ($t5)        # Null-terminate output
+    jr    $ra
