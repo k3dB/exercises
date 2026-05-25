@@ -1,0 +1,41 @@
+# | Register | Usage        | Type    | Description                   |
+# | -------- | ------------ | ------- | ----------------------------- |
+# | `$a0`    | input        | address | null-terminated input string  |
+# | `$a1`    | input/output | address | null-terminated result string |
+# | `$t0-9`  | temporary    | any     | for temporary storage         |
+
+.globl transcribe_rna
+
+.data
+
+# Each set of two characters is a nucleotide/complement pair.
+transcriptions: .asciiz "GCCGTAAU"
+
+.text
+
+transcribe_rna:
+    move  $t1, $a1            # Output pointer
+
+next_input:
+    lb    $t0, ($a0)          # Read each input nucleotide
+    beqz  $t0, done           # Reached end of input
+    addiu $a0, $a0, 1         # Prepare for next input nucleotide
+    la    $t3, transcriptions # Transcription pointer
+
+next_nucleotide:
+    lb    $t2, ($t3)          # Compare input with transcription
+    beqz  $t2, next_input     # Nucleotide not transcribed (edge case)
+    addiu $t3, $t3, 1         # Bump transcription pointer to complement
+    beq   $t0, $t2, found     # Match current input nucleotide?
+    addiu $t3, $t3, 1         # Bump transcription pointer to next nucleotide
+    j     next_nucleotide
+
+found:
+    lb    $t2, ($t3)          # Load the complement of the matching nucleotide
+    sb    $t2, ($t1)          # Store complement in output
+    addiu $t1, $t1, 1         # Prepare for next output complement
+    j     next_input
+
+done:
+    sb    $zero, ($t1)        # Null terminate the output
+    jr    $ra
