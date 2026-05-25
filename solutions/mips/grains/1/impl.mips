@@ -1,0 +1,33 @@
+# | Register | Usage     | Type    | Description                      |
+# | -------- | --------- | ------- | -------------------------------- |
+# | `$a0`    | input     | integer | square number in the range 1..64 |
+# | `$v0`    | output    | integer | low 32 bits of output            |
+# | `$v1`    | output    | integer | high 32 bits of output           |
+# | `$t0-9`  | temporary | any     | for temporary storage            |
+
+.globl square
+
+square:
+    move  $v0, $0         # Initialize outputs to zero
+    move  $v1, $0
+    blt   $a0,  1, _done  # Invalid input is zero grains
+    bgt   $a0, 64, _done
+    sgt   $t0, $a0, 32    # Set flag if the bit to set is in the high 32 bits
+    beqz  $t0, _calculate # If low 32 bits, start the calculation
+    subi  $a0, $a0, 32    # Otherwise, get input in the low 32 bit range
+
+_calculate:
+    seq   $t1, $0, $0     # Start with bit in lowest position
+    addiu $a0, $a0, -1    # Calculation is 2 to the power of n - 1
+    sllv  $t1, $t1, $a0
+
+    beqz  $t0, _lower     # Is the set bit in the low 32 bits?
+
+    move  $v1, $t1        # If not, set the bit in the high 32 bits
+    b     _done
+
+_lower:
+    move  $v0, $t1        # Otherwise, set the bit in the low 32 bits
+
+_done:
+    jr    $ra
