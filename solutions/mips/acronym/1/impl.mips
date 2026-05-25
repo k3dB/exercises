@@ -1,0 +1,63 @@
+# | Register | Usage        | Type    | Description                   |
+# | -------- | ------------ | ------- | ----------------------------- |
+# | `$a0`    | input        | address | null-terminated input string  |
+# | `$a1`    | input/output | address | null-terminated output string |
+# | `$t0`    |              | byte    | current input character       |
+# | `$t1`    |              | bit     | first letter flag             |
+# | `$t2`    |              | byte    | comparison character          |
+# | `$t3`    |              | address | delimiter character array     |
+# | `$t5`    |              | address | output character pointer      |
+
+.globl abbreviate
+
+.data
+# String treated as null-terminated character array
+delimiters: .asciiz " -"
+
+.text
+
+.macro check_delimiters()
+    la   $t3, delimiters
+_next_delimiter:
+    lb   $t2, ($t3)
+    beqz $t2, _end_delimiters
+    beq  $t0, $t2, _is_delimiter
+    addi $t3, $t3, 1
+    b    _next_delimiter
+_is_delimiter:
+    li   $t1, 1          # Reset first letter flag
+_end_delimiters:
+.end_macro
+
+.macro check_letter(%a, %z, %case)
+    li   $t2, %a
+    blt  $t0, $t2, next_input
+    li   $t2, %z
+    ble  $t0, $t2, %case
+.end_macro
+
+abbreviate:
+    move $t5, $a1        # Pointer to build output
+    li   $t1, 1          # Determine if next letter goes to output
+
+next_input:
+    lb   $t0, ($a0)
+    beqz $t0, return     # No more input characters
+    addi $a0, $a0, 1     # Prepare for next input character
+    check_delimiters()
+    beqz $t1, next_input # Not first letter, find next delimiter
+    check_letter('A', 'Z', _upper)
+    check_letter('a', 'z', _lower)
+    j    next_input
+
+_lower:
+    addi $t0, $t0, -32   # Convert lower case ASCII to upper case
+_upper:
+    sb   $t0, ($t5)      # Add to output
+    addi $t5, $t5, 1     # Prepare next output character
+    li   $t1, 0          # Clear first letter flag
+    j    next_input
+
+return:
+    sb   $zero, ($t5)    # Null-terminate output
+    jr   $ra
