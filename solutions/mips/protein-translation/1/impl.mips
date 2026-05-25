@@ -1,0 +1,125 @@
+# | Register | Usage        | Type    | Description                   |
+# | -------- | ------------ | ------- | ----------------------------- |
+# | `$a0`    | input        | address | null-terminated input string  |
+# | `$a1`    | input/output | address | null-terminated output string |
+# | `$t0-9`  | temporary    | any     | used for temporary storage    |
+
+.globl proteins
+
+.data
+
+methionine:    .asciiz "Methionine\n"
+phenylalanine: .asciiz "Phenylalanine\n"
+leucine:       .asciiz "Leucine\n"
+serine:        .asciiz "Serine\n"
+tyrosine:      .asciiz "Tyrosine\n"
+cysteine:      .asciiz "Cysteine\n"
+tryptophan:    .asciiz "Tryptophan\n"
+
+protein_values: .word
+    methionine, phenylalanine, leucine, serine, tyrosine, cysteine, tryptophan
+
+# Protein index followed by codon
+codons:
+    .byte 0
+    .asciiz "AUG"
+    .byte 1
+    .asciiz "UUU"
+    .byte 1
+    .asciiz "UUC"
+    .byte 2
+    .asciiz "UUA"
+    .byte 2
+    .asciiz "UUG"
+    .byte 3
+    .asciiz "UCU"
+    .byte 3
+    .asciiz "UCC"
+    .byte 3
+    .asciiz "UCA"
+    .byte 3
+    .asciiz "UCG"
+    .byte 4
+    .asciiz "UAU"
+    .byte 4
+    .asciiz "UAC"
+    .byte 5
+    .asciiz "UGU"
+    .byte 5
+    .asciiz "UGC"
+    .byte 6
+    .asciiz "UGG"
+    .byte 7
+    .asciiz "UAA"
+    .byte 7
+    .asciiz "UAG"
+    .byte 7
+    .asciiz "UGA"
+    .byte -1                 # Mark end of codon data
+
+codon_buffer: .space 3
+
+.text
+
+.macro save_codon_char(%no_input)
+    lb   $t0, ($a0)          # Load next input character
+    beqz $t0, %no_input      # No more input
+    sb   $t0, ($t1)          # Put codon character in buffer
+    addi $a0, $a0, 1         # Prepare next codon character
+    addi $t1, $t1, 1
+.end_macro
+
+.macro compare_codon_char()
+    addi $t2, $t2, 1         # Point to codon character to check
+    lb   $t8, ($t1)
+    lb   $t9, ($t2)
+    beq  $t8, $t9, _valid
+    li   $t4, 0
+_valid:
+    addi $t1, $t1, 1         # Advance codon buffer pointer
+.end_macro
+
+proteins:
+    move $t3, $a1            # Save starting output address for invalid case
+    move $t5, $a1            # Output pointer
+    li   $t7, 7              # Stop protein index (out of range)
+
+next_codon:
+    la   $t1, codon_buffer   # Initialize codon buffer pointer
+    save_codon_char(done)    # 1st codon character, done if empty
+    save_codon_char(invalid) # 2nd codon character, invalid if too short
+    save_codon_char(invalid) # 3rd codon character, invalid if too short
+    la   $t2, codons         # Prepare to check codons
+
+check_codon:
+    li   $t4, 1              # Clear if mismatching character is found
+    la   $t1, codon_buffer   # Reset buffer pointer for comparison
+    lb   $t6, ($t2)          # Load protein index for codon being checked
+    bltz $t6, invalid        # Checked all codons without a match
+    compare_codon_char()     # Compare each codon character
+    compare_codon_char()
+    compare_codon_char()
+    addi $t2, $t2, 2         # Prepare next codon to check (point after null)
+    beqz $t4, check_codon    # Continue to search for codon if mismatch found
+
+found:
+    beq  $t6, $t7, done      # Found a STOP protein
+    la   $t2, protein_values # Load protein address base pointer
+    sll  $t6, $t6, 2         # Multiply protein index by 4 (word size)
+    add  $t2, $t2, $t6       # Get protein offset
+    lw   $t0, ($t2)          # Load value of protein address
+
+add_protein:
+    lb   $t1, ($t0)          # Next protein character
+    beqz $t1, next_codon     # Reached null-terminator, continue checking input
+    sb   $t1, ($t5)
+    addi $t5, $t5, 1
+    addi $t0, $t0, 1
+    j    add_protein
+
+invalid:
+    move $t5, $t3            # Point to beginning of output to clear string
+
+done:
+    sb   $zero, ($t5)        # Null-terminate output
+    jr   $ra
