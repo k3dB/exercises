@@ -1,0 +1,68 @@
+# | Register | Usage     | Type    | Description                              |
+# | -------- | --------- | ------- | ---------------------------------------- |
+# | `$a0`    | input     | address | null-terminated input string             |
+# | `$v0`    | output    | boolean | valid isbn (`0` = `false`, `1` = `true`) |
+# | `$t0-9`  | temporary | any     | used for temporary storage               |
+
+.globl is_valid
+
+is_valid:
+    li   $v0, 0            # Assume invalid unless proven to be valid
+    li   $t3, 1            # Digit multiplier (rewinding from end--check digit)
+    li   $t9, 0            # ASCII character counter
+    li   $t7, 0            # Count digits on first pass, then keep total
+
+# Run forward through string for first pass of validation.
+# Count digit characters and keep track of last character to see if it is an X.
+count:
+    addi $t9, $t9, 1       # Increment character counter
+    lb   $t0, 0($a0)       # Current ASCII character
+    beqz $t0, check_end    # Null terminator, done with first pass
+    addi $a0, $a0, 1       # Setup next ASCII character
+    beq  $t0, '-', count   # Skip dashes
+    move $t1, $t0          # Keep track of last non-null/dash character
+    blt  $t0, '0', count   # Not a digit
+    bgt  $t0, '9', count   # Not a digit
+    addi $t7, $t7, 1       # Count digit
+    j    count
+
+check_end:
+    sub  $t1, $t1, 'X'     # Check if check digit is X
+    beqz $t1, check_digit_x
+
+    subi $t7, $t7, 10      # Check that we have 10 digits
+    bnez $t7, done         # Invalid number of digits
+    j         rewind       # Begin rewind process
+
+check_digit_x:
+    subi $t7, $t7, 9       # Check that we have 9 non-check digits
+    bnez $t7, done         # Invalid number of digits
+    li   $t7, 10           # Otherwise, check digit is X, so start with 10
+    subi $t9, $t9, 1       # Check digit already processed
+    subi $a0, $a0, 1       # Setup previous ASCII character
+    li   $t3, 2            # Next multiplier
+
+# Rewind back through the string (from the end).
+# Calculate the total (before the mod 11 check).
+rewind:
+    subi $t9, $t9, 1       # Decrement charcter counter
+    beqz $t9, validate     # No more characters
+    subi $a0, $a0, 1       # Setup previous ASCII character
+    lb   $t0, 0($a0)       # Current ASCII character under test
+    beq  $t0, '-', rewind  # Skip dashes
+    blt  $t0, '0', done    # Not a digit
+    bgt  $t0, '9', done    # Not a digit
+    subi $t0, $t0, '0'     # Convert ASCII to digit
+
+    mul  $t1, $t0, $t3     # Apply multiplier
+    add  $t7, $t7, $t1     # Add to total
+    addi $t3, $t3, 1       # Next multiplier
+    j    rewind
+
+validate:
+    rem  $t7, $t7, 11      # Total mod 11
+    bnez $t7, done         # If not zero, invalid
+    li   $v0, 1            # Otherwise, valid
+
+done:
+    jr   $ra
