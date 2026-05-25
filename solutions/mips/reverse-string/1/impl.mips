@@ -1,0 +1,32 @@
+# | Register | Usage        | Type    | Description                   |
+# | -------- | ------------ | ------- | ----------------------------- |
+# | `$a0`    | input        | address | null-terminated input string  |
+# | `$a1`    | input/output | address | null-terminated output string |
+# | `$t0-9`  | temporary    | any     | used for temporary storage    |
+
+.globl reverse
+
+reverse:
+    move $t0, $a0      # Copy input
+    move $t5, $a1      # Use $t5 for building new string
+    li   $t1, 0        # Initialize counter
+
+count:
+    addi $t1, $t1, 1   # Increment count
+    lb   $t2, 0($t0)   # Current character (assumes one byte ASCII)
+    beqz $t2, rewind   # Found null termination
+    addi $t0, $t0, 1   # Next character
+    j    count
+
+rewind:
+    subi $t1, $t1, 1   # Count back down to zero
+    beqz $t1, done     # Finished
+    subi $t0, $t0, 1   # Previous character
+    lb   $t2, 0($t0)   # Pull characters in from the end
+    sb   $t2, 0($t5)   # Store in next position
+    addi $t5, $t5 1    # Prepare next byte of storage
+    j    rewind
+
+done:
+    sb   $zero, 0($t5) # Null terminate string
+    jr   $ra
