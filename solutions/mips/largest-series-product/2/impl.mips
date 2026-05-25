@@ -1,0 +1,44 @@
+# | Register | Usage        | Type    | Description                   |
+# | -------- | ------------ | ------- | ----------------------------- |
+# | `$a0`    | input        | address | null-terminated digits string |
+# | `$a1`    | input        | integer | span                          |
+# | `$v0`    | output       | integer | largest series product        |
+# | `$t0-9`  | temporary    | any     | for temporary storage         |
+
+.globl largest_product
+
+largest_product:
+    li    $v0, -1         # Initialize output to error value
+    bltz  $a1, _done      # Negative span is invalid
+    beqz  $a1, _zero_span
+
+_next_digit:
+    move  $t0, $a0        # Current subset address
+    move  $t1, $zero      # Clear subset index
+    li    $t3, 1          # Initialize current product
+
+_next_subset_digit:
+    lb    $t2, ($t0)
+    beqz  $t2, _done      # More input digits?
+    subi  $t2, $t2, '0'   # Convert string to integer
+    blt   $t2, 0, _invalid_digit
+    bgt   $t2, 9, _invalid_digit
+    mul   $t3, $t3, $t2   # Collect current product
+    addiu $t0, $t0, 1     # Next subset address
+    addiu $t1, $t1, 1     # Next subset index
+    blt   $t1, $a1, _next_subset_digit
+
+    sgt   $t2, $t3, $v0   # Is current subset product the greatest?
+    movn  $v0, $t3, $t2   # If so, update output, otherwise continue
+    addiu $a0, $a0, 1     # Move to next digit of input
+    j     _next_digit
+
+_invalid_digit:
+    li    $v0, -1
+    j     _done
+
+_zero_span:
+    li    $v0, 1          # Zero span is valid, but result should be one
+
+_done:
+    jr    $ra
