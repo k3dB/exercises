@@ -1,0 +1,28 @@
+# | Register | Usage     | Type    | Description                |
+# | -------- | --------- | ------- | -------------------------- |
+# | `$a0`    | input     | integer | radicand                   |
+# | `$v0`    | output    | integer | square root                |
+# | `$t0-9`  | temporary | any     | used for temporary storage |
+
+.globl  square_root
+
+# Uses binary search version of the integer square root algorithm.
+square_root:
+    move  $v0, $zero          # Left (and final) result
+    addiu $t0, $a0, 1         # Right result
+
+_next:
+    addiu $t1, $t0, -1        # One less than right result
+    beq   $v0, $t1, _done     # Found integer square root?
+    add   $t3, $v0, $t0       # Add the left and right results together
+    srl   $t3, $t3, 1         # Divide by two to get the median
+    mul   $t2, $t3, $t3       # Square the median
+    ble   $t2, $a0, _left     # Is the square less than or equal to the input?
+    move  $t0, $t3            # If not, update right result
+    b     _next
+_left:
+    move  $v0, $t3            # Otherwise, update left result
+    b     _next
+
+_done:
+    jr    $ra
