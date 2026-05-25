@@ -1,0 +1,43 @@
+# | Register | Usage        | Type    | Description                    |
+# | -------- | ------------ | ------- | ------------------------------ |
+# | `$a0`    | input        | address | array elements                 |
+# | `$a1`    | input        | integer | size of array, in words        |
+# | `$a2`    | input        | integer | value being searched for       |
+# | `$v0`    | output       | integer | index of value in array, or -1 |
+# | `$t0-9`  | temporary    | any     | for temporary storage          |
+
+.globl find
+
+find:
+    li    $v0, -1         # Default if not found
+    beqz  $a1, done       # Empty array
+    move  $t0, $zero      # Lower bound index
+    addiu $t1, $a1, -1    # Upper bound index
+
+next:
+    srl   $t2, $t0, 1
+    srl   $t3, $t1, 1
+    add   $t4, $t2, $t3   # Middle index
+    sll   $t5, $t4, 2     # Word size
+    add   $t5, $t5, $a0   # Offset
+    lw    $t6, ($t5)      # Middle item
+    beq   $t6, $a2, found
+
+    blt   $t6, $a2, upper_range
+
+    move  $t1, $t4        # Search lower range
+    addiu $t1, $t1, -1
+    bgt   $t0, $t1, done  # Not found if lower > upper
+    j     next
+
+upper_range:
+    move  $t0, $t4
+    addiu $t0, $t0, 1
+    bgt   $t0, $t1, done  # Not found if lower > upper
+    j     next
+
+found:
+    move  $v0, $t4
+
+done:
+    jr    $ra
