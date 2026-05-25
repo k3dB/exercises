@@ -1,0 +1,25 @@
+# | Register | Usage     | Type    | Purpose                    |
+# | -------- | --------- | ------- | -------------------------- |
+# | `$a0`    | input     | integer | given value                |
+# | `$v0`    | output    | integer | difference of squares      |
+# | `$t0-9`  | temporary | any     | used for temporary storage |
+
+.globl difference_of_squares
+
+difference_of_squares:
+# Sum of natrual numbers: n * (n + 1) / 2
+    addi $t1, $a0, 1       # n + 1 => $t1
+    mulu $t2, $a0, $t1     # n * (n + 1) => $t2
+    srl  $t3, $t2, 1       # Divide by 2
+    mulu $t9, $t3, $t3     # Square of sum => $t9
+
+# Sum of squares: n * (n + 1) * (2 * n + 1) / 6
+    sll  $t3, $a0, 1       # 2 * n
+    addi $t3, $t3, 1       # 2 * n + 1
+    mulu $t4, $t2, $t3     # n * (n + 1) * (2 * n + 1)
+    li   $t6, 6            # Divide by 6
+    divu $t8, $t4, $t6     # Sum of squares => $t8
+
+# Difference of squares
+    sub  $v0, $t9, $t8
+    jr $ra
