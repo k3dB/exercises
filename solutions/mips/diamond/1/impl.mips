@@ -1,0 +1,79 @@
+# | Register | Usage        | Type    | Description                   |
+# | -------- | ------------ | ------- | ----------------------------- |
+# | `$a0`    | input        | byte    | letter                        |
+# | `$a1`    | input/output | address | null-terminated result string |
+# | `$t0-9`  | temporary    | any     | for temporary storage         |
+
+.globl rows
+
+.macro get_inner_spaces_count()
+    move  $t6, $t3          # Row count
+    sub   $t6, $t6, 1       # Subtract first letter
+    beqz  $t4, _one_letter  # One or two letters in row?
+    sub   $t6, $t6, 1       # Subtract second letter (if exists)
+_one_letter:
+    sub   $t6, $t6, $t5     # Subtract starting outer spaces
+    sub   $t6, $t6, $t5     # Subtract ending outer spaces
+.end_macro
+
+.macro insert_spaces(%count)
+    move  $t9, $zero        # Reset space loop counter
+_next_space:
+    beq   $t9, %count, _finish_spaces
+    li    $t8, ' '          # Add space
+    sb    $t8, ($t1)
+    addi  $t1, $t1, 1       # Prepare next output byte
+    addi  $t9, $t9, 1       # Increment space counter
+    j     _next_space
+_finish_spaces:
+.end_macro
+
+.macro insert_letter()
+    addi  $t8, $t4, 'A'     # Letter for current row
+    sb    $t8, ($t1)
+    addi  $t1, $t1, 1       # Prepare next output byte
+.end_macro
+
+rows:
+    move  $t1, $a1          # Output position tracker
+    subi  $t0, $a0, 'A'     # Input letter index
+    move  $t2, $zero        # Row index
+    sll   $t3, $t0, 1       # Calculate row count (2 * letter index + 1)
+    addi  $t3, $t3, 1
+    move  $t4, $zero        # Current letter index
+    move  $t5, $t0          # Count of outer spaces
+
+_next_row:
+    beq   $t2, $t3, _done   # Finished all rows?
+    get_inner_spaces_count()
+
+    insert_spaces($t5)      # Starting outer spaces
+    insert_letter()         # First letter in row
+    insert_spaces($t6)      # Inner spaces
+
+    beqz  $t4, _skip_second_letter
+    insert_letter()         # Second letter in row (if not A)
+
+_skip_second_letter:
+    insert_spaces($t5)      # Ending outer spaces
+
+_end_row:
+    blt   $t2, $t0, _first_half
+    subi  $t4, $t4, 1       # Second half moving back down the alphabet
+    addi  $t5, $t5, 1       # Second half adding more outer space
+    j     _prepare_next
+
+_first_half:
+    addi  $t4, $t4, 1       # First half moving up the alphabet
+    subi  $t5, $t5, 1       # First half reducing outer space
+
+_prepare_next:
+    li    $t8, '\n'         # Put a newline after each row
+    sb    $t8, ($t1)
+    addi  $t1, $t1, 1       # Prepare next output byte
+    addi  $t2, $t2, 1       # Next row index
+    j     _next_row
+
+_done:
+    sb    $zero, ($t1)      # Null terminate output
+    jr    $ra
