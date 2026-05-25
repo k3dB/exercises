@@ -1,0 +1,61 @@
+# | Register | Usage     | Type    | Description                |
+# | -------- | --------- | ------- | -------------------------- |
+# | `$a0`    | input     | address | array of item weights      |
+# | `$a1`    | input     | address | array of item values       |
+# | `$a2`    | input     | integer | number of items            |
+# | `$a3`    | input     | integer | maximum weight             |
+# | `$v0`    | output    | integer | maximum value              |
+# | `$t0-9`  | temporary | any     | used for temporary storage |
+
+.globl maximum_value
+
+maximum_value:
+    move   $t3, $sp              # Save initial stack pointer
+    addiu  $t0, $a3, 1           # Array holds one more than the maximum weight
+    sll    $t0, $t0, 2           # Word size
+    sub    $sp, $sp, $t0         # Allocate enough stack for max_values array
+    move   $t4, $sp              # Start of max_values array
+    move   $t1, $t4              # Prepare to initialize max_values array
+
+clear_next:
+    beq    $t1, $t3, next_item
+    sw     $zero, ($t1)          # Fill array with zeros
+    addiu  $t1, $t1, 4           # Next word-sized address
+    j      clear_next
+
+next_item:
+    beqz   $a2, done             # Finished iterating over items
+    lw     $t5, ($a0)            # Get current item's weight
+    lw     $t6, ($a1)            # Get current item's value
+
+    addiu  $a0, $a0, 4           # Next item weight address
+    addiu  $a1, $a1, 4           # Next item value address
+    addiu  $a2, $a2, -1          # Decrement item count
+
+    addiu  $t0, $a3, 1           # Reset max_values index to last index
+
+next_weight:
+    blt    $t0, $t5, next_item   # While index >= item.weight
+    sub    $t7, $t0, $t5         # Current index less the item weight
+    sll    $t7, $t7, 2           # Word size
+    add    $t1, $t4, $t7         # Offset
+    lw     $t8, ($t1)            # Get max_values[weight - item.weight]
+    add    $t8, $t8, $t6         # Add item's value
+
+    sll    $t7, $t0, 2           # Word size
+    add    $t1, $t4, $t7         # Offset
+    lw     $t9, ($t1)            # Get max_values[weight]
+
+    ble    $t8, $t9, leave_item
+    sw     $t8, ($t1)            # New max value
+
+leave_item:
+    addiu  $t0, $t0, -1
+    j      next_weight
+
+done:
+    sll    $t0, $a3, 2           # Maximum value is max_values[maximum_weight]
+    add    $t1, $t4, $t0
+    lw     $v0, ($t1)
+    move   $sp, $t3              # Restore stack pointer
+    jr     $ra
