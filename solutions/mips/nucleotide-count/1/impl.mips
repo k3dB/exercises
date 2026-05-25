@@ -1,0 +1,46 @@
+# | Register | Usage        | Type    | Description                             |
+# | -------- | ------------ | ------- | --------------------------------------- |
+# | `$a0`    | input        | address | null-terminated input string            |
+# | `$a1`    | input/output | address | null-terminated result string (4 words) |
+# | `$t0-9`  | temporary    | any     | for temporary storage                   |
+
+.globl nucleotide_counts
+
+.macro check_nucleotide(%letter, %count)
+    seq   $t5, $t0, %letter     # Match?
+    or    $t6, $t6, $t5         # Update valid flag
+    add   %count, %count, $t5   # Update count
+.end_macro
+
+nucleotide_counts:
+    move  $t1, $zero            # Adenine count
+    move  $t2, $zero            # Cytosine count
+    move  $t3, $zero            # Guanine count
+    move  $t4, $zero            # Thymine count
+
+_next_count:
+    lb    $t0, ($a0)            # Read nucleotide
+    beqz  $t0, _end_count       # Finished sequence?
+    addiu $a0, $a0, 1           # Prepare for next nucleotide
+    move  $t6, $zero            # Flag to set if a valid nucleotide was counted
+    check_nucleotide('A', $t1)  # Adenine?
+    check_nucleotide('C', $t2)  # Cytosine?
+    check_nucleotide('G', $t3)  # Guanine?
+    check_nucleotide('T', $t4)  # Thymine?
+    beqz  $t6, _invalid         # Was valid flag set?
+    b     _next_count
+
+_end_count:
+    sw    $t1,  0($a1)          # Load counts into output
+    sw    $t2,  4($a1)
+    sw    $t3,  8($a1)
+    sw    $t4, 12($a1)
+    jr    $ra
+
+_invalid:
+    li    $t0, -1               # Load all -1s into output
+    sw    $t0,  0($a1)
+    sw    $t0,  4($a1)
+    sw    $t0,  8($a1)
+    sw    $t0, 12($a1)
+    jr    $ra

@@ -1,0 +1,40 @@
+# | Register | Usage        | Type    | Description                            |
+# | -------- | ------------ | ------- | -------------------------------------- |
+# | `$a0`    | input/output | address | phone number as null-terminated string |
+# | `$t0-9`  | temporary    | any     | used for temporary storage             |
+
+.globl clean
+
+clean:
+    move  $t0, $a0            # Read from $a0, write with $t0
+    move  $t2, $a0            # Keep starting address for invalid cases
+    move  $t3, $zero          # Output size
+
+_next:
+    lb    $t1, ($a0)
+    beqz  $t1, _done          # Reached end of input?
+    addiu $a0, $a0, 1         # Prepare for next input byte
+
+    blt   $t1, '0', _next     # Skip if not a digit
+    bgt   $t1, '9', _next
+
+    beq   $t3, 0, __code      # Check for first digit of area code
+    beq   $t3, 3, __code      # Check for first digit of exchange code
+    j     __write
+
+__code:
+    blt   $t1, '2', _next     # Skip if not a valid initial code digit
+
+__write:
+    sb    $t1, ($t0)
+    addiu $t0, $t0, 1
+    addiu $t3, $t3, 1
+
+    j     _next
+
+_done:
+    beq   $t3, 10, _valid     # Output correct size?
+    move  $t0, $t2            # Otherwise, reset output to return empty string
+_valid:
+    sb $zero, ($t0)           # Null terminate output
+    jr $ra

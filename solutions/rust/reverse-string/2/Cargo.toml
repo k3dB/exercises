@@ -1,0 +1,10 @@
+[dependencies]
+unicode-reverse = { version = "1.0.8", optional = true }
+
+[features]
+grapheme = ["dep:unicode-reverse"]
+
+[package]
+edition = "2021"
+name = "reverse_string"
+version = "1.2.0"

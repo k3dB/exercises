@@ -1,0 +1,41 @@
+# | Register | Usage        | Type    | Description                   |
+# | -------- | ------------ | ------- | ----------------------------- |
+# | `$a0`    | input        | address | null-terminated input string  |
+# | `$a1`    | input        | integer | shift key                     |
+# | `$a2`    | input/output | address | null-terminated result string |
+# | `$t0-9`  | temporary    | any     | for temporary storage         |
+
+.globl rotate
+
+.macro shift_value(%a, %z)
+    blt   $t0, %a, _end_shift     # Not a letter
+    bgt   $t0, %z, _end_shift     # Not a letter
+    addu  $t0, $t0, $a1           # Shift the value
+    ble   $t0, %z, _end_shift     # Remained in range?
+    addiu $t0, $t0, -26           # Overflowed range, rewind back to in range
+_end_shift:
+.end_macro
+
+rotate:
+
+_next:
+    lb    $t0, ($a0)              # Current input byte
+    beqz  $t0, _done              # Reached end of input?
+    blt   $t0, 'a', __upper_case  # Not lower case, try upper case
+    bgt   $t0, 'Z', __lower_case  # Not upper case, try lower case
+
+__upper_case:
+    shift_value('A', 'Z')
+    j     __prepare_next          # Skip over lower case
+
+__lower_case:
+    shift_value('a', 'z')
+
+__prepare_next:
+    sb    $t0, ($a2)              # Store current output byte
+    addiu $a0, $a0, 1             # Prepare next input byte
+    addiu $a2, $a2, 1             # Prepare next output byte
+    j     _next
+
+_done:
+    jr    $ra

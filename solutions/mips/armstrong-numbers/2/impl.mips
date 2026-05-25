@@ -1,0 +1,45 @@
+# | Register | Usage     | Type    | Description                                       |
+# | -------- | --------- | ------- | ------------------------------------------------- |
+# | `$a0`    | input     | address | number                                            |
+# | `$v0`    | output    | boolean | is armstrong number (`0` = `false`, `1` = `true`) |
+# | `$t0-9`  | temporary | any     | used for temporary storage                        |
+
+.globl is_armstrong_number
+
+is_armstrong_number:
+    move  $t0, $a0         # Copy input
+    li    $t9, 10          # Working with decimal (base 10) input values
+    move  $t3, $zero       # Count number of digits in input (exponent)
+    move  $t5, $zero       # Sum of each digit to the power of digit count
+    move  $t8, $sp         # Store current value of stack pointer
+
+_count:
+    addiu $t3, $t3, 1      # Increment digit count
+    div   $t0, $t9         # Integer division to shift (decimal) digits
+    mflo  $t0              # Get quotient (remaining decimal digits)
+    mfhi  $t1              # Get remainder (the digit we shifted off)
+    addiu $sp, $sp, -4     # Store current digit on stack
+    sw    $t1, ($sp)
+    bnez  $t0, _count      # More digits?
+
+_next:
+    lw    $t1, ($sp)       # Pop next digit from stack
+    addiu $sp, $sp, 4
+    li    $t2, 1           # Initialize accumulator for exponentiation
+    move  $t4, $t3         # Reset volatile copy of exponent
+
+_pow: # Exponentiation by squaring
+    andi  $t0, $t4, 1      # Is the current exponent odd?
+    beqz  $t0, _square     # If even, we can square the digit
+    mul   $t2, $t2, $t1    # Accumulate powers of digit
+
+_square:
+    mul   $t1, $t1, $t1    # Square the digit
+    srl   $t4, $t4, 1      # Halve exponent (also shifts off 1s from odd cases)
+    bnez  $t4, _pow        # Have we reached zero for the exponent?
+
+    add   $t5, $t5, $t2    # Keep sum of each digit to the power of digit count
+    bne   $sp, $t8, _next  # Continue while there are digits left on the stack
+
+    seq   $v0, $t5, $a0    # Set to true if sum equals the initial input
+    jr    $ra

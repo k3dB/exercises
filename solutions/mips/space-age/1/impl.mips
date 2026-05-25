@@ -1,0 +1,57 @@
+# | Register | Usage     | Type    | Description                                |
+# | -------- | --------- | ------- | ------------------------------------------ |
+# | `$a0`    | input     | integer | planet (`0` = Mercury, `1` = Venus,        |
+# |          |           |         | `2` = Earth, `3` = Mars, `4` = Jupiter,    |
+# |          |           |         | `5` = Saturn, `6` = Uranus, `7` = Neptune) |
+# | `$a1`    | input     | integer | seconds                                    |
+# | `$v0`    | output    | integer | age in hundredths of a year                |
+# | `$t0-9`  | temporary | any     | used for temporary storage                 |
+
+.globl age
+
+.data
+
+earth_seconds: .double 31557600.0
+one_thousand:  .double 1000.0
+
+ratios: .double
+    0.2408467,  # Mercury
+    0.61519726, # Venus
+    1.0,        # Earth
+    1.8808158,  # Mars
+    11.862615,  # Jupiter
+    29.447498,  # Saturn
+    84.016846,  # Uranus
+    164.79132   # Neptune
+
+.text
+
+age:
+    la      $t0, earth_seconds # Number of seconds per earth year
+    l.d     $f0, ($t0)
+    mtc1    $a1, $f2           # Input as double
+    cvt.d.w $f4, $f2
+    div.d   $f2, $f4, $f0      # Input as earth years
+
+    la      $t0, ratios
+    sll     $t1, $a0, 3        # Multiply by 8 for double size index offset
+    add     $t0, $t0, $t1
+    l.d     $f0, ($t0)         # Planet ratio as double
+    div.d   $f4, $f2, $f0      # Planet years as double (earth years / ratio)
+
+    la      $t0, one_thousand
+    l.d     $f2, ($t0)
+    mul.d   $f0, $f4, $f2      # Get thousandths as integer
+    cvt.w.d $f3, $f0
+    mfc1    $t3, $f3
+
+    li      $t1, 10            # Rounding...
+    div     $t3, $t1
+    mflo    $t0                # Unrounded hundredths
+    mfhi    $t1                # Thousandths place
+    blt     $t1, 5, done
+    addi    $t0, $t0, 1        # Round up
+
+done:
+    move    $v0, $t0
+    jr      $ra

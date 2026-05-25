@@ -1,0 +1,58 @@
+# | Register | Usage     | Type    | Description                                      |
+# | -------- | --------- | ------- | ------------------------------------------------ |
+# | `$a0`    | input     | address | null-terminated input string                     |
+# | `$v0`    | output    | boolean | input is a pangram (`0` = `false`, `1` = `true`) |
+# | `$t0-9`  | temporary | any     | used for temporary storage                       |
+
+.globl is_pangram
+
+.data
+
+letter_flags: .byte 0 : 26    # 26 letters in English alphabet
+
+.text
+
+is_pangram:
+    li   $t9, 26              # Store count of English letters
+    move $v0, $zero           # Output defaults to false
+    move $t0, $zero           # Index for clearing array values
+
+clear_next:
+    beq  $t0, $t9, next_input # Finished clearing letter flags
+    la   $t1, letter_flags
+    add  $t1, $t1, $t0
+    sb   $zero, ($t1)         # Clear letter flag
+    addi $t0, $t0, 1          # Next letter_flags index
+    j    clear_next
+
+next_input:
+    lb   $t0, ($a0)           # Track letters found in input
+    beqz $t0, check_counts    # Finished input
+    addi $a0, $a0, 1          # Prepare for next input byte
+    andi $t0, $t0, 0xDF       # Convert to upper case (if letter)
+    blt  $t0, 'A', next_input # Skip non-letters
+    bgt  $t0, 'Z', next_input
+    subi $t0, $t0, 'A'        # Convert to index value
+    la   $t1, letter_flags
+    add  $t1, $t1, $t0
+    li   $t0, 1               # Letter found
+    sb   $t0, ($t1)           # Set letter flag
+    j    next_input
+
+check_counts:
+    move $t0, $zero           # Start at beginning of letter_flags array
+
+check_next_count:
+    beq  $t0, $t9, true       # Finished checking letters
+    la   $t1, letter_flags
+    add  $t1, $t1, $t0
+    lb   $t2, ($t1)           # Get value of current letter flag
+    beqz $t2, done            # If a letter was not found, return false
+    addi $t0, $t0, 1          # Next letter_flags index
+    j    check_next_count
+
+true:
+    li   $v0, 1
+
+done:
+    jr   $ra

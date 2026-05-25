@@ -1,0 +1,104 @@
+# | Register | Usage        | Type    | Description                                                    |
+# | -------- | ------------ | ------- | -------------------------------------------------------------- |
+# | `$a0`    | input        | address | null-terminated target string, without newline                 |
+# | `$a1`    | input        | address | null-terminated candidates string with newline after each word |
+# | `$a2`    | input/output | address | null-terminated output string with newline after each word     |
+# | `$t0-9`  | temporary    | any     | for temporary storage                                          |
+
+.globl find_anagrams
+
+.data
+
+letter_counts: .byte 0 : 26         # Store count of each letter in candidate
+
+.text
+
+.macro count_letters(%ending, %direction)
+next:
+    lb    $t1, ($t2)                # Get next letter
+    beq   $t1, %ending, finished    # Reached string ending character?
+    andi  $t1, $t1, 0xDF            # Convert letter to upper case
+    subi  $t1, $t1, 'A'             # Convert value to letter count index
+    la    $t0, letter_counts        # Get current letter count
+    add   $t0, $t0, $t1             # Add offset to starting address
+    lb    $t1, ($t0)
+    addi  $t1, $t1, %direction      # Increment/decrement letter count
+    sb    $t1, ($t0)
+    addiu $t2, $t2, 1               # Next letter to count
+    j     next
+finished:
+.end_macro
+
+find_anagrams:
+    move  $t4, $a1                  # Current candidate pointer
+    move  $t5, $a2                  # Output pointer
+
+next_candidate:
+    lb    $t1, ($t4)
+    beqz  $t1, done                 # More candidates?
+
+# Check if candidate matches word
+    move  $t2, $a0                  # Comparison word pointer
+    move  $t3, $t4                  # Comparison candidate pointer
+next_comparison:
+    lb    $t0, ($t2)
+    lb    $t1, ($t3)
+    beqz  $t0, done_comparing       # Reached end of either word?
+    beq   $t1, '\n', done_comparing
+    andi  $t0, $t0, 0xDF            # Convert both to upper case
+    andi  $t1, $t1, 0xDF
+    bne   $t0, $t1, not_same_word   # Does current letter match?
+    addiu $t2, $t2, 1               # Prepare next pair of letters to compare
+    addiu $t3, $t3, 1
+    j     next_comparison
+
+done_comparing:
+    bnez  $t0, not_same_word        # Reached end of both at the same time?
+    bne   $t1, '\n', not_same_word
+    j     prepare_next_candidate    # Same word; move to next candidate
+
+not_same_word:
+    move  $t2, $t4
+    count_letters('\n', 1)          # Count of each letter in candidate
+
+    move  $t2, $a0
+    count_letters('\0', -1)         # Reverse count of each letter in word
+
+# Any non-zero letter count means the candidate is not an anagram of word
+    la    $t1, letter_counts        # Checking if all letter counts are zero
+    move  $t0, $zero                # Letter index counter
+check_next_letter:
+    beq   $t0, 26, add_candidate    # Checked count of all letters?
+    lb    $t3, ($t1)                # Check current letter count
+    bnez  $t3, prepare_next_candidate
+    addiu $t0, $t0, 1               # Prepare to check next letter count
+    addiu $t1, $t1, 1
+    j     check_next_letter
+
+add_candidate:
+    lb    $t0, ($t4)                # Candidate is an anagram; store in output
+    sb    $t0, ($t5)
+    addiu $t4, $t4, 1
+    addiu $t5, $t5, 1
+    beq   $t0, '\n', clear_letter_counts
+    j     add_candidate
+
+prepare_next_candidate:
+    lb    $t0, ($t4)                # Find start of next candidate
+    addiu $t4, $t4, 1
+    beq   $t0, '\n', clear_letter_counts
+    j     prepare_next_candidate
+
+clear_letter_counts:
+    la    $t1, letter_counts        # Clearing letter counts for next candidate
+    move  $t0, $zero                # Letter index counter
+clear_next_count:
+    beq   $t0, 26, next_candidate   # Done clearing counts?
+    sb    $zero, ($t1)              # Clear current count
+    addiu $t1, $t1, 1               # Prepare for next count to clear
+    addiu $t0, $t0, 1               # Next index counter
+    j     clear_next_count
+
+done:
+    sb    $zero, ($t5)              # Null-terminate output
+    jr    $ra

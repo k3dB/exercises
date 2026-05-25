@@ -1,0 +1,53 @@
+# | Register | Usage     | Type    | Description                                            |
+# | -------- | --------- | ------- | ------------------------------------------------------ |
+# | `$a0`    | input     | address | null-terminated input string                           |
+# | `$v0`    | output    | boolean | validity of input string (`0` = `false`, `1` = `true`) |
+# | `$t0-9`  | temporary | any     | used for temporary storage                             |
+
+.globl valid
+
+valid:
+    move $t2, $zero      # Use $t2 for double flag
+    move $t3, $zero      # Use $t3 to count digits
+    move $t4, $zero      # Use $t4 to sum digits
+    move $v0, $zero      # Assume false unless proven to be true
+
+count:
+    lb   $t0, ($a0)      # Next input character
+    beqz $t0, check_size # Finished counting digits
+    addi $a0, $a0, 1     # Prepare next character
+    beq  $t0, ' ', count # Skip spaces
+    blt  $t0, '0', done  # Verify character is a digit
+    bgt  $t0, '9', done
+    addi $t3, $t3, 1     # Add to digit count
+    j    count
+
+check_size:
+    blt $t3, 2, done     # Must have at least two digits to be valid
+
+next:
+    beqz $t3, calculate  # Finished processing input
+    addi $a0, $a0, -1    # Going backwards to the beginning
+    lb   $t0, ($a0)      # Next input character
+    beq  $t0, ' ', next  # Skip spaces
+    addi $t3, $t3, -1    # Decrement count
+    addi $t0, $t0, -48   # Convert to digit
+    beqz $t2, accumulate
+
+double:
+    sll  $t0, $t0, 1
+    ble  $t0, 9, accumulate
+    addi $t0, $t0, -9
+
+accumulate:
+    add  $t4, $t4, $t0   # Add to sum of digits
+    xori $t2, $t2, 1     # Flip double flag bit
+    j    next
+
+calculate:
+    rem  $t0, $t4, 10
+    bnez $t0, done
+    li   $v0, 1
+
+done:
+    jr   $ra

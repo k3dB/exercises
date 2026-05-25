@@ -1,0 +1,47 @@
+# | Register | Usage        | Type    | Description                                  |
+# | -------- | ------------ | ------- | -------------------------------------------- |
+# | `$a0`    | input        | address | null-terminated name string, or null pointer |
+# | `$a1`    | input/output | address | null-terminated result string                |
+# | `$t0-9`  | temporary    | any     | for temporary storage                        |
+
+.globl two_fer
+
+.data
+
+prefix:  .asciiz "One for "
+default: .asciiz "you"
+suffix:  .asciiz ", one for me."
+
+.text
+
+.macro copy_string(%continue)
+next_character:
+    lb   $t1, ($t0)
+    beqz $t1, %continue
+    sb   $t1, ($t5)
+    addi $t0, $t0, 1
+    addi $t5, $t5, 1
+    j    next_character
+.end_macro
+
+two_fer:
+    move $t5, $a1            # Pointer to build output
+    la   $t0, prefix
+    copy_string(check_input)
+
+check_input:
+    beqz $a0, use_default    # Check if input was given
+    la   $t0, ($a0)          # If so, use it
+    copy_string(add_suffix)  # Continue to suffix
+
+use_default:
+    la   $t0, default
+    copy_string(add_suffix)
+
+add_suffix:
+    la   $t0, suffix
+    copy_string(done)
+
+done:
+    sb   $zero, ($t5)        # Null-terminate output
+    jr   $ra

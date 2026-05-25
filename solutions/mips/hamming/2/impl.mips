@@ -1,0 +1,24 @@
+# | Register | Usage     | Type    | Description                     |
+# | -------- | --------- | ------- | ------------------------------- |
+# | `$a0`    | input     | address | first, null-terminated, string  |
+# | `$a1`    | input     | address | second, null-terminated, string |
+# | `$v0`    | output    | integer | hamming distance                |
+# | `$t0-9`  | temporary | any     | for temporary storage           |
+
+.globl hamming_distance
+
+hamming_distance:
+    move  $v0, $zero       # Initialize output
+
+next:
+    lb    $t0, ($a0)       # Get current ASCII byte of each input string
+    beqz  $t0, done        # Reached end of first input string?
+    lb    $t1, ($a1)
+    sne   $t2, $t0, $t1    # Increment output if the two bytes are different
+    addu  $v0, $v0, $t2
+    addiu $a0, $a0, 1      # Point to next ASCII byte in both input strings
+    addiu $a1, $a1, 1
+    j     next
+
+done:
+    jr    $ra

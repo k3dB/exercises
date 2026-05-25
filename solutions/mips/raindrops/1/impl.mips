@@ -1,0 +1,90 @@
+# | Register | Usage        | Type    | Description                   |
+# | -------- | ------------ | ------- | ----------------------------- |
+# | `$a0`    | input        | integer | given number                  |
+# | `$a1`    | input/output | address | null-terminated result string |
+# | `$t0-9`  | temporary    | any     | for temporary storage         |
+
+.globl raindrops
+
+.data
+
+pling: .asciiz "Pling"
+plang: .asciiz "Plang"
+plong: .asciiz "Plong"
+
+.text
+
+raindrops:
+    addi $sp, $sp, -4     # Save $ra to stack
+    sw   $ra, ($sp)
+
+    move $t5, $a1         # Build result with $t5
+
+    rem  $t0, $a0, 3      # Check for Pling
+    bnez $t0, check_plang
+    la   $t0, pling
+    jal  copy_string
+
+check_plang:
+    rem  $t0, $a0, 5
+    bnez $t0, check_plong
+    la   $t0, plang
+    jal  copy_string
+
+check_plong:
+    rem  $t0, $a0, 7
+    bnez $t0, check_int
+    la   $t0, plong
+    jal  copy_string
+    j    check_int
+
+# Copies string from address in $t0 to $t5
+copy_string:
+    addi $sp, $sp, -4     # Save $ra to stack
+    sw   $ra, ($sp)
+next_character:
+    lb   $t1, ($t0)
+    beqz $t1, end_copy    # Null terminator reached (not copied)
+    sb   $t1, ($t5)       # Copy current character at current location
+    addi $t5, $t5, 1      # Prepare next store location
+    addi $t0, $t0, 1      # Prepare next character
+    j    next_character
+end_copy:
+    lw   $ra, ($sp)       # Exit copy_string subprogram
+    addi $sp, $sp, 4
+    jr   $ra
+
+check_int:
+    bne  $t5, $a1, done   # Done if a sound was added
+
+# Convert number to string (assumes positive number)
+    move $t0, $a0         # Copy input
+    li   $t1, 10          # Hold divisor for conversion
+    li   $t3, 0           # Count digits to know how many are on the stack
+
+# Push digits onto stack from right to left
+next_digit:
+    addi $t3, $t3, 1      # Increment digit counter
+    div  $t0, $t1         # Get digits by repeated division by 10 (base)
+    mfhi $t2              # Current digit (going backwards)
+    addi $t2, $t2, '0'    # Convert to ASCII
+    addi $sp, $sp, -4     # Push ASCII digit on stack (word-aligned)
+    sw   $t2, ($sp)
+    mflo $t0              # Store quotient to prepare for next digit
+    bnez $t0, next_digit  # If not zero, there are more digits
+
+# Pop digits back off stack from left to right
+unwind:
+    lw   $t0, ($sp)       # Pop ASCII digit off stack (word-aligned)
+    addi $sp, $sp, 4
+    sb   $t0, ($t5)       # Store ASCII digit in memory location
+    addi $t5, $t5, 1      # Prepare next digit to be stored
+    addi $t3, $t3, -1     # Count back down
+    beqz $t3, done        # Finished when zero is reached
+    j    unwind
+
+done:
+    sb   $zero, ($t5)     # Null-terminate output
+    lw   $ra, ($sp)       # Exit raindrops
+    addi $sp, $sp, 4
+    jr   $ra

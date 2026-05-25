@@ -1,0 +1,70 @@
+# | Register | Usage     | Type    | Description                     |
+# | -------- | --------- | ------- | ------------------------------- |
+# | `$a0`    | input     | address | color as null-terminated string |
+# | `$v0`    | output    | integer | resistor value                  |
+# | `$t0-9`  | temporary | any     | for temporary storage           |
+
+.globl color_code
+
+.data
+
+black:  .asciiz "black"
+brown:  .asciiz "brown"
+red:    .asciiz "red"
+orange: .asciiz "orange"
+yellow: .asciiz "yellow"
+green:  .asciiz "green"
+blue:   .asciiz "blue"
+violet: .asciiz "violet"
+grey:   .asciiz "grey"
+white:  .asciiz "white"
+
+colors: .word
+    black,
+    brown,
+    red,
+    orange,
+    yellow,
+    green,
+    blue,
+    violet,
+    grey,
+    white,
+    0
+
+.text
+
+color_code:
+    move  $t0, $a0              # Input byte pointer
+    move  $v0, $zero            # Start with black and do a linear search
+
+_next_color:
+    move  $t1, $v0              # Calculate next color offset
+    sll   $t1, $t1, 2
+    la    $t2, colors           # Get address of colors
+    add   $t2, $t2, $t1         # Add current offset
+    lw    $t2, ($t2)            # Get address of current color to test
+    beqz  $t2, _invalid         # No more colors to test?
+
+__next_byte:
+    lb    $t3, ($t2)            # Get test color byte to compare
+    lb    $t1, ($t0)            # Get input color byte to compare
+    beqz  $t3, __check_equal    # End of test color bytes?
+    beqz  $t1, __not_equal      # Reached the end of the input color, first?
+    bne   $t3, $t1, __not_equal # Found a mismatching byte?
+    addiu $t2, $t2, 1           # Next test color byte
+    addiu $t0, $t0, 1           # Next input color byte
+    b     __next_byte
+
+__check_equal:
+    beqz  $t1, _done            # Both colors reached the end at the same time?
+
+__not_equal:
+    move  $t0, $a0              # Reset input pointer to beginning
+    addiu $v0, $v0, 1           # Move to the next color
+    b     _next_color
+
+_invalid:                       # There are currently no test cases for invalid
+    li    $v0, -1               # input, but it is good practice to handle them
+_done:
+    jr    $ra

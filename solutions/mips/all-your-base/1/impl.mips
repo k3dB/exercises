@@ -1,0 +1,79 @@
+# | Register | Usage        | Type    | Description                                  |
+# | -------- | ------------ | ------- | -------------------------------------------- |
+# | `$a0`    | input        | integer | number of input digits                       |
+# | `$a1`    | input        | integer | base for input digits                        |
+# | `$a2`    | input        | integer | base for output digits                       |
+# | `$a3`    | input/output | address | overwritable array of digit words            |
+# | `$v0`    | output       | integer | number of output digits, -1 if input invalid |
+# | `$t0-9`  | temporary    | any     | used for temporary storage                   |
+
+.globl rebase
+
+rebase:
+# Initial validation
+    li   $t2, 2              # Valid base comparison
+    blt  $a1, $t2,   invalid # Base must be at least two
+    blt  $a2, $t2,   invalid
+    blt  $a0, $zero, invalid # Digit count cannot be negative
+    beqz $a0, no_digits      # Handle edge case with no digits
+
+# Prepare to convert base
+    move $v0, $zero          # Initialize output digit count
+    move $t5, $zero          # Hold base 10 value
+    move $t1, $zero          # Current digit index
+    move $t3, $a3            # Copy beginning of digits array
+
+# First, convert to a base 10 value
+next_digit:
+    lw   $t0, ($t3)
+    blt  $t0, $zero, invalid # Digit cannot be negative
+    bge  $t0, $a1,   invalid # Digit must be less than the input base
+    mul  $t5, $t5, $a1       # Multiply by 10 (input base) to shift value
+    add  $t5, $t5, $t0       # Add current digit to result (in ones place)
+    addi $t1, $t1, 1         # Next index
+    beq  $t1, $a0, base10    # No more input digits?
+    addi $t3, $t3, 4         # Next digit (word)
+    j    next_digit
+
+base10:
+    move $t3, $a3            # Copy beginning of digits array
+
+# Convert base 10 value to output base in digits array (in reverse order)
+output_base:
+    div  $t5, $a2            # Get next digit (in reverse order)
+    mflo $t5
+    mfhi $t4
+    sw   $t4, ($t3)          # Store in digits array
+    addi $v0, $v0, 1         # Increment output digit count of output
+    beqz $t5, reversed       # No more output digits?
+    addi $t3, $t3, 4         # Prepare next digit (word)
+    j    output_base
+
+reversed:
+    move $t1, $v0
+    addi $t1, $t1, -1        # Last index of reversed digit array
+    move $t3, $a3            # Address of first digit
+    sll  $t2, $t1, 2         # Offset of last digit from first digit
+    add  $t4, $t3, $t2       # Address of last digit
+
+reverse_in_place:
+    bge  $t3, $t4, done      # Finished reversing digits?
+    lw   $t5, ($t3)          # Swap values to reverse in place
+    lw   $t6, ($t4)
+    sw   $t5, ($t4)
+    sw   $t6, ($t3)
+    addi $t3, $t3,  4        # Prepare next set of values to swap
+    addi $t4, $t4, -4
+    j    reverse_in_place
+
+# Return [0] when input digit count is zero
+no_digits:
+    li   $v0, 1
+    sw   $zero, ($a3)
+    j    done
+
+invalid:
+    li   $v0, -1
+
+done:
+    jr   $ra

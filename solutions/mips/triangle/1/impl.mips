@@ -1,0 +1,44 @@
+# | Register | Usage     | Type    | Description                                                                        |
+# | -------- | --------- | ------- | ---------------------------------------------------------------------------------- |
+# | `$a0`    | input     | integer | side a                                                                             |
+# | `$a1`    | input     | integer | side b                                                                             |
+# | `$a2`    | input     | integer | side c                                                                             |
+# | `$v0`    | output    | integer | type of triangle (`0` = scalene, `1` = isoceles, `2` = equilateral, `3` = invalid) |
+# | `$t0-9`  | temporary | any     | used for temporary storage                                                         |
+
+.globl triangle
+
+triangle:
+    # Check invalid cases first
+    li    $v0, 3                # Invalid = 3
+    beqz  $a0, _done            # If any side is zero, it is invalid
+    beqz  $a1, _done
+    beqz  $a2, _done
+
+    add   $t0, $a0, $a1         # a + b
+    add   $t1, $a1, $a2         # b + c
+    add   $t2, $a0, $a2         # a + c
+
+    # To disallow degenerate triangles, use `ble` instead of `blt`
+    blt   $t0, $a2, _done       # Is a + b < c?
+    blt   $t1, $a0, _done       # Is b + b < a?
+    blt   $t2, $a1, _done       # Is a + c < b?
+
+    # Check for equilateral case using the transitive property of equality
+    addiu $v0, $v0, -1          # Equilateral = 2
+    seq   $t0, $a0, $a1         # Check if a == b
+    seq   $t1, $a1, $a2         # Check if b == c
+    and   $t2, $t0, $t1         # If both were true, then a == c
+    beq   $t2, 1, _done         # All sides are the same length
+
+    # Check for isosceles case
+    addiu $v0, $v0, -1          # Isosceles = 1
+    beq   $t0, 1, _done         # a == b
+    beq   $t1, 1, _done         # b == c
+    beq   $a0, $a2, _done       # Check if a == c
+
+    # All other cases are scalene triangles
+    addiu $v0, $v0, -1          # Scalene = 0
+
+_done:
+    jr    $ra

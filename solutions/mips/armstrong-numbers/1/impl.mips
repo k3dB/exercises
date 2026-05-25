@@ -1,0 +1,45 @@
+# | Register | Usage     | Type    | Description                                       |
+# | -------- | --------- | ------- | ------------------------------------------------- |
+# | `$a0`    | input     | address | number                                            |
+# | `$v0`    | output    | boolean | is armstrong number (`0` = `false`, `1` = `true`) |
+# | `$t0-9`  | temporary | any     | used for temporary storage                        |
+
+.globl is_armstrong_number
+
+.macro pow(%digit, %exponent)
+    move  $t4, %exponent   # Iteration count
+    li    $t2, 1           # Result
+
+_next:
+    beqz  $t4, _end_pow    # Finished calculation?
+    mul   $t2, $t2, %digit # Assumes result stays within the 32-bit realm
+    addiu $t4, $t4, -1     # Decrement iteration count
+    b     _next
+
+_end_pow:
+.end_macro
+
+is_armstrong_number:
+    move  $t0, $a0         # Copy input
+    li    $t9, 10          # Working with decimal (base 10) input values
+    move  $t3, $zero       # Count number of digits in input
+    move  $t5, $zero       # Sum of each digit to the power of digit count
+
+_count:
+    addiu $t3, $t3, 1      # Increment digit count
+    div   $t0, $t9         # Integer division to shift (decimal) digits
+    mflo  $t0              # Get quotient
+    bnez  $t0, _count      # More digits?
+
+    move  $t0, $a0         # Restore to original input value
+
+_calculate:
+    div   $t0, $t9         # Integer division
+    mflo  $t0              # Get quotient (digit shifting again)
+    mfhi  $t1              # Get remainder (the digit we shifted off)
+    pow($t1, $t3)          # Digit to the power of digit count => $t2
+    add   $t5, $t5, $t2    # Keep track of sum
+    bnez  $t0, _calculate  # More digits?
+
+    seq   $v0, $t5, $a0    # Set to true if sum equals the initial input
+    jr    $ra

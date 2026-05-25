@@ -1,0 +1,55 @@
+# | Register | Usage     | Type    | Description                            |
+# | -------- | --------- | ------- | -------------------------------------- |
+# | `$a0`    | input     | address | null-terminated string of binary chars |
+# | `$v0`    | output    | integer | decimal value of input string          |
+# | `$t0-9`  | temporary | any     | used for temporary storage             |
+
+.globl binary_convert
+
+.data
+
+invalid_msg: .asciiz "Invalid binary digit in input."
+
+.text
+
+binary_convert:
+    move $t0, $a0          # Save input into $t0
+    li   $t3, -1           # Store exponent (number of digits - 1)
+    li   $t1, 1            # A one to shift for getting the digit value
+    li   $t7, 0            # Clear running total
+
+count_digits:
+    lb   $t2, 0($t0)       # Load current digit from copy of input
+    beqz $t2, counted      # Found null termination of input
+    addi $t0, $t0, 1       # Next digit in copy of input
+    addi $t3, $t3, 1       # Count digits to get maximum exponent value
+    j    count_digits      # Continue looping through input
+
+counted:
+    move $t0, $a0          # Reset $t0 to beginning of input
+
+calculate_decimal:
+    lb   $t2, 0($t0)       # Load current digit from copy of input
+    beqz $t2, done         # Found null termination of input
+    beq  $t2,  48, next    # Look for next 1 bit (48 is ASCII of 0)
+    bne  $t2,  49, invalid # Invalid binary digit (49 is ASCII of 1)
+    sllv $t2, $t1, $t3     # Get value of current digit
+    add  $t7, $t7, $t2     # Running total for result
+
+next:
+    addi $t0, $t0, 1       # Next digit in copy of input
+    subi $t3, $t3, 1       # Next exponent (scanning digits left to right)
+    j    calculate_decimal # Continue looping through input
+
+done:
+    move $v0, $t7          # Return decimal value
+    jr   $ra
+
+invalid:
+    la $a0, invalid_msg    # Load invalid message
+    li $v0, 4              # Print message
+    syscall
+
+    la $a0, 1              # Set error code
+    li $v0, 17             # Exit with error
+    syscall
