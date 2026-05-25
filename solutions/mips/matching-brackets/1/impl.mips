@@ -1,0 +1,52 @@
+# | Register | Usage     | Type    | Description                                               |
+# | -------- | --------- | ------- | --------------------------------------------------------- |
+# | `$a0`    | input     | address | null-terminated input string                              |
+# | `$v0`    | output    | boolean | input has matching brackets (`0` = `false`, `1` = `true`) |
+# | `$t0-9`  | temporary | any     | used for temporary storage                                |
+
+.globl is_paired
+
+is_paired:
+    move $t2, $sp         # Cache initial stack pointer address
+
+next_input:
+    lb    $t0, ($a0)      # Get current input byte
+    beqz  $t0, done       # Check if reached end of input
+    addiu $a0, $a0, 1     # Prepare for next input byte
+    beq   $t0, '(', push_symbol
+    beq   $t0, '[', push_symbol
+    beq   $t0, '{', push_symbol
+    b     closing         # Not an opening symbol
+
+push_symbol:
+    addiu $sp, $sp, -4
+    sw    $t0, ($sp)
+    j     next_input      # Continue to next input byte
+
+closing:
+    li    $t3, '('
+    beq   $t0, ')', pop_symbol
+    li    $t3, '['
+    beq   $t0, ']', pop_symbol
+    li    $t3, '{'
+    beq   $t0, '}', pop_symbol
+    j     next_input      # Not a closing symbol
+
+pop_symbol:
+    lw    $t1, ($sp)
+    bne   $t1, $t3, false # Does the popped value match expected value?
+    addiu $sp, $sp, 4
+
+    j     next_input      # Continue to next input byte
+
+done:
+    bne   $t2, $sp, false # Is the stack empty?
+
+true:
+    li    $v0, 1          # All opening symbols have a matching close sybmol
+    jr    $ra
+
+false:
+    move  $sp, $t2        # Reset stack pointer
+    move  $v0, $zero
+    jr    $ra
