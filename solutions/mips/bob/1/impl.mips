@@ -1,0 +1,99 @@
+# | Register | Usage        | Type    | Description                   |
+# | -------- | ------------ | ------- | ----------------------------- |
+# | `$a0`    | input        | address | null-terminated input string  |
+# | `$a1`    | input/output | address | null-terminated output string |
+# | `$t0-9`  | temporary    | any     | used for temporary storage    |
+
+.globl response
+
+.data
+
+# Responses to each type of phrase given as input ("phrase type"_response)
+question_response:         .asciiz "Sure."
+shouting_response:         .asciiz "Whoa, chill out!"
+shouted_question_response: .asciiz "Calm down, I know what I'm doing!"
+silence_response:          .asciiz "Fine. Be that way!"
+miscellaneous_response:    .asciiz "Whatever."
+
+.text
+
+response:
+    move  $t2, $zero            # Flags
+
+# 0 0 0 1  1 1 1 1
+#       |  | | | |
+#  1 -> |  | | | Non-white-space found (not silence)
+#  2 -> |  | | Capital letter found
+#  4 -> |  | Lower case letter found
+#  8 -> |  Question mark found
+# 16 -> Non-Question mark found after question mark (white space is ignored)
+
+_next:
+    lb    $t0, ($a0)            # Read current input byte
+    beqz  $t0, _respond         # Finished analyzing input phrase?
+    addiu $a0, $a0, 1           # Prepare for next input byte
+
+    beq   $t0, ' ',  _next      # Ignore spaces
+    beq   $t0, '\t', _next      # Ignore tabs
+    beq   $t0, '\r', _next      # Ignore carriage returns
+    beq   $t0, '\n', _next      # Ignore line feeds
+
+    ori   $t2, $t2, 1           # Not silence
+
+    sge   $t3, $t0, 'A'         # Check for capital letter
+    sle   $t4, $t0, 'Z'
+    seq   $t1, $t3, $t4
+    sll   $t1, $t1, 1           # Setup flag bit for capital letter found
+    or    $t2, $t2, $t1         # Capital letter found?
+
+    sge   $t3, $t0, 'a'         # Check for lower case letter
+    sle   $t4, $t0, 'z'
+    seq   $t1, $t3, $t4
+    sll   $t1, $t1, 2           # Setup flag bit for lower case letter found
+    or    $t2, $t2, $t1         # Lower case letter found?
+
+    beq   $t0, '?', _question_mark
+    andi  $t1, $t2, 8           # Check for previously found question mark
+    sll   $t1, $t1, 1           # Align with next flag
+    or    $t2, $t2, $t1         # Has a question mark been seen/visited?
+    j     _next
+
+_question_mark:
+    ori   $t2, $t2, 8           # Question mark found
+    j     _next
+
+_respond:
+# Silence if no flags were set
+    la    $t0, silence_response
+    beqz  $t2, _copy_response
+
+# mask   0000 1110 # Include lower case letters in mask
+# expect 0000 1010 # Expect no lower case letters
+    la    $t0, shouted_question_response
+    andi  $t1, $t2, 14
+    beq   $t1, 10, _copy_response
+
+# mask   0000 1110 # Include lower case letters and question mark in mask
+# expect 0000 0010 # Expect no lower case letters or question mark
+    la    $t0, shouting_response
+    andi  $t1, $t2, 14
+    beq   $t1, 2, _copy_response
+
+# mask   0001 1000 # Include check mask for question mark being at the end
+# expect 0000 1000 # Expect question mark to be last non-white-space byte
+    la    $t0, question_response
+    andi  $t1, $t2, 24
+    beq   $t1, 8, _copy_response
+
+    la    $t0, miscellaneous_response
+
+_copy_response:
+    lb    $t1, ($t0)
+    sb    $t1, ($a1)            # Copy response to output buffer
+    beqz  $t1, _done            # Include null-terminator in copy
+    addiu $t0, $t0, 1
+    addiu $a1, $a1, 1
+    j     _copy_response
+
+_done:
+    jr    $ra
