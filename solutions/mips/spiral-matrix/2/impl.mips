@@ -1,0 +1,79 @@
+# | Register | Usage        | Type    | Description                         |
+# | -------- | ------------ | ------- | ----------------------------------- |
+# | `$a0`    | input        | integer | size                                |
+# | `$a1`    | input/output | address | matrix of words, in row-major order |
+# | `$v0`    | output       | integer | number of words in matrix           |
+# | `$t0-9`  | temporary    | any     | for temporary storage               |
+
+.globl spiral_matrix
+
+.macro get_cell_address()
+    sll   $t4, $t0, 2         # Word size
+    sll   $t5, $t1, 2
+    mul   $t4, $t4, $a0       # Row-major offset
+    add   $t4, $t4, $a1
+    add   $t4, $t4, $t5       # Column offset
+.end_macro
+
+spiral_matrix:
+    mul   $v0, $a0, $a0       # Output integer is input squared
+    move  $t0, $zero          # Row index pointer
+    move  $t1, $zero          # Column index pointer
+    move  $t2, $zero          # Direction counter
+    move  $t3, $zero          # Natural number value for array cell
+
+next_number:
+    addiu $t3, $t3, 1         # Next natural number value
+    bgt   $t3, $v0, done      # Finished building array
+    get_cell_address()
+    lw    $t5, ($t4)          # Get current value
+    move  $t6, $zero          # Clear direction change flag
+    move  $t8, $t0            # Cache indices
+    move  $t9, $t1
+
+next_direction:
+    beqz  $t5, store_value    # Is this array cell populated?
+    add   $t2, $t2, $t6       # Changes direction if flag is set
+    move  $t0, $t8            # Reset indices from cache
+    move  $t1, $t9
+
+    rem   $t7, $t2, 4         # Get direction ordinal
+    beq   $t7, 0, move_right
+    beq   $t7, 1, move_down
+    beq   $t7, 2, move_left
+    beq   $t7, 3, move_up
+
+move_right:
+    addiu $t4, $a0, -1        # Maximum index
+    beq   $t1, $t4, get_value # If reached maximum column index, change direction
+    addiu $t1, $t1, 1         # Otherwise, move (right) to next column index
+    j get_value
+
+move_down:
+    addiu $t4, $a0, -1        # Maximum index
+    beq   $t0, $t4, get_value # If reached maximum row index, change direction
+    addiu $t0, $t0, 1         # Otherwise, move (down) to next row index
+    j get_value
+
+move_left:
+    beqz  $t1, get_value      # If reached minimum column index, change direction
+    addiu $t1, $t1, -1        # Otherwise, move (left) to previous column index
+    j get_value
+
+move_up:
+    beqz  $t0, get_value      # If reached minimum row index, change direction
+    addiu $t0, $t0, -1        # Otherwise, move (up) to previous row index
+
+get_value:
+    get_cell_address()
+    lw    $t5, ($t4)          # Get current value
+    ori   $t6, $zero, 1       # Set direction change flag
+    j     next_direction
+
+store_value:
+    get_cell_address()        # Reached an "empty" array cell
+    sw    $t3, ($t4)          # Store the current natural number value
+    j next_number
+
+done:
+    jr    $ra
