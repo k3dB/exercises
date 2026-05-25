@@ -1,0 +1,57 @@
+# | Register | Usage     | Type    | Description                  |
+# | -------- | --------- | ------- | ---------------------------- |
+# | `$a0`    | input     | address | null-terminated input string |
+# | `$v0`    | output    | integer | scrabble score               |
+# | `$t0-9`  | temporary | any     | for temporary storage        |
+
+.globl scrabble_score
+
+.data
+
+letters: .byte
+     1, # A
+     3, # B
+     3, # C
+     2, # D
+     1, # E
+     4, # F
+     2, # G
+     4, # H
+     1, # I
+     8, # J
+     5, # K
+     1, # L
+     3, # M
+     1, # N
+     1, # O
+     3, # P
+    10, # Q
+     1, # R
+     1, # S
+     1, # T
+     1, # U
+     4, # V
+     4, # W
+     8, # X
+     4, # Y
+    10  # Z
+
+.text
+
+scrabble_score:       
+    move $v0, $zero     # Initialize return value
+
+next_letter:
+    lb   $t0, ($a0)     # Load current letter
+    beqz $t0, done      # Finished word
+    andi $t0, $t0, 0xDF # Convert to upper case
+    subi $t0, $t0, 'A'  # Convert to index value
+    la   $t1, letters   # Get letter score
+    add  $t1, $t1, $t0
+    lb   $t0, ($t1)
+    add  $v0, $v0, $t0  # Tally letter score
+    addi $a0, $a0, 1    # Advance pointer to next letter
+    j    next_letter
+
+done:
+    jr $ra
