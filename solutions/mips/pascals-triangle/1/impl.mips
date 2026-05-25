@@ -1,0 +1,50 @@
+# | Register | Usage        | Type    | Description             |
+# | -------- | ------------ | ------- | ----------------------- |
+# | `$a0`    | input        | integer | number of triangle rows |
+# | `$a1`    | input/output | address | array of words          |
+# | `$v0`    | output       | integer | number of output words  |
+# | `$t0-9`  | temporary    | any     | for temporary storage   |
+
+.globl rows
+
+.macro store_value()
+    sw    $t4, ($t1)            # Store current value
+    addiu $t1, $t1, 4           # Prepare next word value
+    addiu $v0, $v0, 1           # Increment output value count
+.end_macro
+
+rows:
+    move  $t0, $zero            # Row index
+    move  $t1, $a1              # Pointer to address of current value
+    move  $v0, $zero            # Cell/value output counter
+
+next_row:
+    beq   $t0, $a0, done        # Finished populating rows
+    li    $t3, 1                # Inner value index
+    move  $t4, $t3              # Each row starts with a one
+    store_value()
+    beqz  $t0, prepare_next_row # First row?
+
+next_inner_value:
+    beq   $t3, $t0, last_value  # Done with inner values
+    move  $t4, $t1              # Start at current address
+    sll   $t2, $t0, 2           # Word size of current row index
+    subu  $t4, $t4, $t2         # Second operand
+    lw    $t6, ($t4)
+    addiu $t4, $t4, -4          # First operand
+    lw    $t5, ($t4)
+    addu  $t4, $t5, $t6         # Calculate current value
+    store_value()
+    addiu $t3, $t3, 1
+    j     next_inner_value
+
+last_value:
+    li    $t4, 1                # Each row ends with a one
+    store_value()
+
+prepare_next_row:
+    addiu $t0, $t0, 1
+    j     next_row
+
+done:
+    jr    $ra
