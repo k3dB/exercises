@@ -1,0 +1,77 @@
+# | Register | Usage        | Type    | Description                   |
+# | -------- | ------------ | ------- | ----------------------------- |
+# | `$a0`    | input        | integer | given number                  |
+# | `$a1`    | input/output | address | null-terminated result string |
+# | `$t0-9`  | temporary    | any     | for temporary storage         |
+
+.globl roman
+
+.data
+
+numerals:
+    .word 1000
+    .asciiz "M"
+    .word 900
+    .asciiz "CM"
+    .word 500
+    .asciiz "D"
+    .word 400
+    .asciiz "CD"
+    .word 100
+    .asciiz "C"
+    .word 90
+    .asciiz "XC"
+    .word 50
+    .asciiz "L"
+    .word 40
+    .asciiz "XL"
+    .word 10
+    .asciiz "X"
+    .word 9
+    .asciiz "IX"
+    .word 5
+    .asciiz "V"
+    .word 4
+    .asciiz "IV"
+    .word 1
+    .asciiz "I"
+    .word 0                # Marks the end of data
+
+.text
+
+roman:
+    move $t5, $a1          # Using $t5 to build output value
+    la   $t0, numerals     # Start pointer at the beginning of the data
+
+next:
+    lw   $t1, ($t0)        # Test current (Arabic) number
+    beqz $t1, done         # Finished processing data and do not divide by zero
+    div  $a0, $t1          # Divide value by current number under test
+    mfhi $a0               # Setup next value to calculate
+    mflo $t3               # Number of times to repeat current (Roman) numeral
+    addi $t0, $t0, 4       # Point to start of Roman numeral value
+    move $t9, $t0          # Keep track of beginning of Roman numeral value
+    beqz $t3, prepare_next # Current numeral not for output
+
+numeral:
+    beqz $t3, prepare_next # Done repeating current Roman numeral value
+    addi $t3, $t3, -1      # Decrement count
+    move $t0, $t9          # Start at beginning of Roman numeral value
+    lb   $t1, ($t0)        # Load first character of Roman numeral value
+    sb   $t1, ($t5)        # Store first character in output
+    addi $t5, $t5, 1       # Prepare for next output character
+    addi $t0, $t0, 1       # Point to second Roman numeral character
+    lb   $t1, ($t0)        # Load second character of roman numeral value
+    beqz $t1, numeral      # Only one Roman numeral character
+    sb   $t1, ($t5)        # Store second roman numeral character
+    addi $t5, $t5, 1       # Prepare next output character
+    j    numeral
+
+prepare_next:
+    move $t0, $t9          # Move to beginning of Roman numeral value
+    addi $t0, $t0, 4       # Point to next Arabic number
+    j    next
+
+done:
+    sb   $zero, ($t5)      # Null terminate output
+    jr   $ra
