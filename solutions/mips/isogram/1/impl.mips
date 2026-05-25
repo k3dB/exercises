@@ -1,0 +1,47 @@
+# | Register | Usage     | Type    | Description                                       |
+# | -------- | --------- | ------- | ------------------------------------------------- |
+# | `$a0`    | input     | address | null-terminated input string                      |
+# | `$v0`    | output    | boolean | input is an isogram (`0` = `false`, `1` = `true`) |
+# | `$t0-9`  | temporary | any     | used for temporary storage                        |
+
+.globl is_isogram
+
+.data
+
+letters: .byte 0 : 26         # 26 letters in Englist alphabet
+
+.text
+
+is_isogram:
+    move  $v0, $zero          # Initialize output to false
+    la    $t1, letters        # Prepare to clear array
+    li    $t0, 26
+
+_clear_next:
+    beqz  $t0, _next
+    sb    $zero, ($t1)        # Clear array
+    addiu $t1, $t1,  1        # Next array element
+    addiu $t0, $t0, -1        # Counting down to zero
+    j     _clear_next
+
+_next:
+    lb    $t0, ($a0)
+    beqz  $t0, _true          # Reached end of input?
+    addiu $a0, $a0, 1         # Prepare next input byte
+    beq   $t0, ' ', _next     # Skip spaces
+    beq   $t0, '-', _next     # Skip dashes
+    andi  $t0, $t0, 0xDF      # Convert to upper case
+    subi  $t0, $t0, 'A'       # Convert to letter array index
+    la    $t1, letters
+    add   $t1, $t1, $t0
+    lb    $t0, ($t1)          # Get current value
+    bgtz  $t0, _false         # Already seen this letter?
+    addiu $t0, $t0, 1         # Mark letter as being found in input
+    sb    $t0, ($t1)
+    j     _next
+
+_true:
+    li    $v0, 1              # Only set to true if no duplicate letters found
+
+_false:
+    jr    $ra
