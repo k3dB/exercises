@@ -1,0 +1,33 @@
+# | Register | Usage     | Type    | Description                |
+# | -------- | --------- | ------- | -------------------------- |
+# | `$a0`    | input     | integer | x                          |
+# | `$a1`    | input     | integer | y                          |
+# | `$v0`    | output    | integer | points earned              |
+# | `$t0-9`  | temporary | any     | used for temporary storage |
+
+.globl score
+
+score:
+    mul   $t0, $a0, $a0       # x squared
+    mul   $t1, $a1, $a1       # y squared
+    add   $t0, $t0, $t1       # Square of the distance
+    move  $v0, $zero          # Default output to no points
+
+    ble   $t0,   1, _ten      # Compare square of distance for point value
+    ble   $t0,  25, _five
+    ble   $t0, 100, _one
+    b     _done               # More than distance of 10 is no points
+
+_one:
+    addiu $v0, $v0, 1
+    b     _done
+
+_five:
+    addiu $v0, $v0, 5
+    b     _done
+
+_ten:
+    addiu $v0, $v0, 10
+
+_done:
+    jr    $ra
